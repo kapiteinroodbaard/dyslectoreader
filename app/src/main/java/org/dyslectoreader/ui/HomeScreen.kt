@@ -113,11 +113,18 @@ fun HomeScreen(onOpenSettings: () -> Unit, onOpenAbout: () -> Unit) {
                         Switch(
                             checked = running,
                             onCheckedChange = {
-                                if (!hasOverlayPermission) return@Switch
+                                if (!hasOverlayPermission) {
+                                    context.startActivity(
+                                        Intent(
+                                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                            Uri.parse("package:${context.packageName}")
+                                        )
+                                    )
+                                    return@Switch
+                                }
                                 notifLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
                                 RulerOverlayService.toggle(context)
                             },
-                            enabled = hasOverlayPermission,
                         )
                     }
                     Text(
@@ -135,6 +142,13 @@ fun HomeScreen(onOpenSettings: () -> Unit, onOpenAbout: () -> Unit) {
                         Text(
                             "To draw the ruler over your e-reader, allow DyslectoReader to display over other apps.",
                             style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Text(
+                            "If the system toggle is grayed out (common for sideloaded apps on " +
+                                "Android 13+): open App info for DyslectoReader, tap the ⋮ menu " +
+                                "in the top-right corner, choose \"Allow restricted settings\", " +
+                                "then grant the permission here again.",
+                            style = MaterialTheme.typography.bodySmall,
                         )
                         Button(onClick = {
                             context.startActivity(
