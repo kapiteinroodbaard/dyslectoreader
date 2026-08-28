@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Two ruler lines with a reading gap, echoing the overlay -->
+    <path android:fillColor="#E3F2FD" android:pathData="M24,40h60v5H24z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M24,63h60v5H24z" />
+    <path android:fillColor="#90CAF9" android:pathData="M28,50h8v8h-8z M72,50h8v8h-8z" />
+</vector>

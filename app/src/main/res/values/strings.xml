@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">DyslectoReader</string>
+    <string name="tile_label">Reading ruler</string>
+    <string name="notif_channel_name">Reading ruler</string>
+    <string name="notif_title">Reading ruler is active</string>
+    <string name="notif_text">Tap to open settings</string>
+</resources>
