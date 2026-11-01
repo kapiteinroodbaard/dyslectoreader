@@ -11,22 +11,39 @@ import android.graphics.Shader
 import android.view.MotionEvent
 import android.view.View
 
-/** A band of the blur zone. Its only job is a faint tint; the blur comes from the window params. */
-class BlurBandView(context: Context) : View(context)
-
 /**
- * Fallback for when cross-window blur is disabled (battery saver, device setting):
- * a scrim that fades from opaque at the line edge to transparent at the far edge.
+ * One masking zone of the ruler: a scrim that fades from opaque at the reading-line
+ * edge to transparent at the far edge, plus (optionally) the visible ruler line drawn
+ * at the inner edge. Line and gradient live in one view so the whole zone is a single
+ * window — keeping the per-window touch-obscuring opacity under the system limit.
  */
-class ScrimView(context: Context, private val fadeDownward: Boolean) : View(context) {
+class ZoneView(context: Context, private val fadeDownward: Boolean) : View(context) {
 
-    private val paint = Paint()
+    private val gradientPaint = Paint()
+    private val linePaint = Paint()
+
     var maxAlpha: Int = 160
         set(value) {
+            if (field == value) return
             field = value
             shaderDirty = true
             invalidate()
         }
+    /** Fraction of the zone (from the inner edge) kept fully dark before the fade starts. */
+    var solidFraction: Float = 0f
+        set(value) {
+            if (field == value) return
+            field = value
+            shaderDirty = true
+            invalidate()
+        }
+    var lineVisible: Boolean = false
+        set(value) { field = value; invalidate() }
+    var lineColor: Int = Color.WHITE
+        set(value) { field = value; invalidate() }
+    var lineThicknessPx: Float = 0f
+        set(value) { field = value; invalidate() }
+
     private var shaderDirty = true
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -35,33 +52,46 @@ class ScrimView(context: Context, private val fadeDownward: Boolean) : View(cont
 
     override fun onDraw(canvas: Canvas) {
         if (shaderDirty && height > 0) {
-            val solid = Color.argb(maxAlpha, 30, 30, 30)
-            val (c0, c1) = if (fadeDownward) solid to Color.TRANSPARENT else Color.TRANSPARENT to solid
-            paint.shader = LinearGradient(
-                0f, 0f, 0f, height.toFloat(), c0, c1, Shader.TileMode.CLAMP
+            val solid = Color.argb(maxAlpha, 15, 15, 15)
+            // Hold fully dark for solidFraction, then an ease-out fade (still 3/4 dark halfway)
+            // so the zone stays dense longer than a plain linear ramp.
+            val hold = solidFraction.coerceIn(0f, 0.9f)
+            val mid = Color.argb(maxAlpha * 3 / 4, 15, 15, 15)
+            val colors = intArrayOf(solid, solid, mid, Color.TRANSPARENT)
+            val stops = floatArrayOf(0f, hold, hold + (1f - hold) / 2f, 1f)
+            val (c, pos) = if (fadeDownward) colors to stops
+            else colors.reversedArray() to stops.map { 1f - it }.reversed().toFloatArray()
+            gradientPaint.shader = LinearGradient(
+                0f, 0f, 0f, height.toFloat(), c, pos, Shader.TileMode.CLAMP
             )
             shaderDirty = false
         }
-        canvas.drawPaint(paint)
+        canvas.drawPaint(gradientPaint)
+
+        if (lineVisible && lineThicknessPx > 0f) {
+            linePaint.color = lineColor
+            // fadeDownward means this zone sits below the gap; its inner edge is the top.
+            val top = if (fadeDownward) 0f else height - lineThicknessPx
+            canvas.drawRect(0f, top, width.toFloat(), top + lineThicknessPx, linePaint)
+        }
     }
 }
 
-/** Solid ruler line (only shown when the user enables visible lines). */
-class LineView(context: Context) : View(context)
-
 /**
- * Circular drag handle. [kind] selects the glyph: MOVE (up/down arrows) or RESIZE (out/in arrows).
- * Reports vertical drag deltas in raw screen pixels.
+ * Circular overlay control. [kind] selects the glyph and the gesture: MOVE (up/down arrows)
+ * and RESIZE (out/in arrows) report vertical drag deltas in raw screen pixels, CLOSE (an X)
+ * is a plain tap that invokes [onTap].
  */
 @SuppressLint("ViewConstructor")
 class HandleView(
     context: Context,
     private val kind: Kind,
-    private val onDragDelta: (deltaYPx: Float) -> Unit,
-    private val onDragEnd: () -> Unit,
+    private val onDragDelta: (deltaYPx: Float) -> Unit = {},
+    private val onDragEnd: () -> Unit = {},
+    private val onTap: () -> Unit = {},
 ) : View(context) {
 
-    enum class Kind { MOVE, RESIZE }
+    enum class Kind { MOVE, RESIZE, CLOSE }
 
     private val circlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.argb(210, 40, 40, 46)
@@ -106,12 +136,18 @@ class HandleView(
                 path.moveTo(cx - a, cy + outer - a); path.lineTo(cx, cy + outer); path.lineTo(cx + a, cy + outer - a)
                 path.moveTo(cx - a, cy); path.lineTo(cx + a, cy)
             }
+            Kind.CLOSE -> {
+                val d = width * 0.20f
+                path.moveTo(cx - d, cy - d); path.lineTo(cx + d, cy + d)
+                path.moveTo(cx + d, cy - d); path.lineTo(cx - d, cy + d)
+            }
         }
         canvas.drawPath(path, glyphPaint)
     }
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (kind == Kind.CLOSE) return onTapEvent(event)
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 lastRawY = event.rawY
@@ -129,6 +165,29 @@ class HandleView(
                 pressed = false
                 invalidate()
                 onDragEnd()
+                return true
+            }
+        }
+        return super.onTouchEvent(event)
+    }
+
+    private fun onTapEvent(event: MotionEvent): Boolean {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                pressed = true
+                invalidate()
+                return true
+            }
+            MotionEvent.ACTION_UP -> {
+                val inside = event.x >= 0 && event.y >= 0 && event.x <= width && event.y <= height
+                pressed = false
+                invalidate()
+                if (inside) onTap()
+                return true
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                pressed = false
+                invalidate()
                 return true
             }
         }

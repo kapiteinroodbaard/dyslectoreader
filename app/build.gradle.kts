@@ -5,7 +5,7 @@ plugins {
 }
 
 // Semantic version — single source of truth, shown in the About screen.
-val appVersion = "1.0.0"
+val appVersion = "1.1.1"
 
 fun semverToCode(v: String): Int {
     val (major, minor, patch) = v.split(".").map { it.toInt() }
@@ -41,6 +41,29 @@ android {
         compose = true
         buildConfig = true
     }
+}
+
+// Every APK is named DyslectoReader-v<semver>.apk (see CLAUDE.md).
+androidComponents {
+    onVariants { variant ->
+        variant.outputs.forEach { output ->
+            (output as? com.android.build.api.variant.impl.VariantOutputImpl)
+                ?.outputFileName?.set("DyslectoReader-v$appVersion.apk")
+        }
+    }
+}
+
+// After every assemble, copy the renamed APK to the Syncthing folder.
+val apkExportDir = "/home/wlenaerts/Sync/apps/Apks"
+listOf("debug", "release").forEach { buildType ->
+    val cap = buildType.replaceFirstChar { it.uppercase() }
+    val copyApk = tasks.register<Copy>("copy${cap}ApkToSync") {
+        from(layout.buildDirectory.dir("outputs/apk/$buildType")) {
+            include("DyslectoReader-v$appVersion.apk")
+        }
+        into(apkExportDir)
+    }
+    tasks.matching { it.name == "assemble$cap" }.configureEach { finalizedBy(copyApk) }
 }
 
 dependencies {

@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -36,6 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import org.dyslectoreader.BuildConfig
 import org.dyslectoreader.data.RulerSettings
 import org.dyslectoreader.data.SettingsRepository
 import kotlin.math.roundToInt
@@ -47,7 +49,7 @@ private val lineColorChoices = listOf(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onBack: () -> Unit) {
+fun SettingsScreen(onBack: () -> Unit, onOpenAbout: () -> Unit) {
     val context = LocalContext.current
     val repo = remember { SettingsRepository.get(context) }
     val settings by repo.settings.collectAsState(initial = RulerSettings())
@@ -83,7 +85,7 @@ fun SettingsScreen(onBack: () -> Unit) {
             SliderSetting(
                 label = "Blur intensity & opacity",
                 value = settings.intensity,
-                range = 0.1f..1f,
+                range = RulerSettings.MIN_INTENSITY..RulerSettings.MAX_INTENSITY,
                 format = { "${(it * 100).roundToInt()} %" },
             ) { scope.launch { repo.setIntensity(it) } }
 
@@ -138,6 +140,29 @@ fun SettingsScreen(onBack: () -> Unit) {
                         )
                     }
                 }
+            }
+
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            SectionTitle("About")
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onOpenAbout)
+                    .padding(vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("DyslectoReader", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Version ${BuildConfig.VERSION_NAME}",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Icon(
+                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = "Open about",
+                )
             }
         }
     }

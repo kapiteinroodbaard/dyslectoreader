@@ -27,7 +27,10 @@ class MainActivity : ComponentActivity() {
                         onOpenSettings = { screen = Screen.Settings },
                         onOpenAbout = { screen = Screen.About },
                     )
-                    Screen.Settings -> SettingsScreen(onBack = { screen = Screen.Home })
+                    Screen.Settings -> SettingsScreen(
+                        onBack = { screen = Screen.Home },
+                        onOpenAbout = { screen = Screen.About },
+                    )
                     Screen.About -> AboutScreen(onBack = { screen = Screen.Home })
                 }
             }

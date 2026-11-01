@@ -8,7 +8,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.service.quicksettings.TileService
-import android.view.WindowManager
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
@@ -19,15 +18,11 @@ import org.dyslectoreader.MainActivity
 import org.dyslectoreader.R
 import org.dyslectoreader.data.SettingsRepository
 import org.dyslectoreader.tile.RulerTileService
-import java.util.function.Consumer
 
 class RulerOverlayService : LifecycleService() {
 
     private lateinit var controller: RulerWindowController
     private lateinit var repo: SettingsRepository
-    private val blurListener = Consumer<Boolean> { enabled ->
-        controller.onBlurAvailabilityChanged(enabled)
-    }
 
     override fun onCreate() {
         super.onCreate()
@@ -36,14 +31,13 @@ class RulerOverlayService : LifecycleService() {
             this,
             onPersistCenter = { v -> lifecycleScope.launch { repo.setCenterYFraction(v) } },
             onPersistGap = { v -> lifecycleScope.launch { repo.setGapHeight(v) } },
+            onRequestClose = { stopSelf() },
         )
         startForeground(NOTIF_ID, buildNotification())
 
-        val wm = getSystemService(WindowManager::class.java)
         lifecycleScope.launch {
             val initial = repo.settings.first()
-            controller.show(initial, wm.isCrossWindowBlurEnabled)
-            wm.addCrossWindowBlurEnabledListener(mainExecutor, blurListener)
+            controller.show(initial)
             isRunning.value = true
             TileService.requestListeningState(
                 this@RulerOverlayService,
@@ -59,8 +53,6 @@ class RulerOverlayService : LifecycleService() {
     }
 
     override fun onDestroy() {
-        getSystemService(WindowManager::class.java)
-            .removeCrossWindowBlurEnabledListener(blurListener)
         controller.hide()
         isRunning.value = false
         TileService.requestListeningState(

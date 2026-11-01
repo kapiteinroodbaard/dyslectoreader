@@ -22,6 +22,9 @@ data class RulerSettings(
     companion object {
         const val DEFAULT_BLUR_HEIGHT_DP = 140f
         const val DEFAULT_INTENSITY = 0.7f
+        const val MIN_INTENSITY = 0.1f
+        // Above 1.0 the fully dark band near the gap widens (see RulerWindowController).
+        const val MAX_INTENSITY = 2f
         const val DEFAULT_GAP_DP = 72f
         const val DEFAULT_LINE_THICKNESS_DP = 2f
         const val DEFAULT_LINE_COLOR = 0xFF1E88E5.toInt()

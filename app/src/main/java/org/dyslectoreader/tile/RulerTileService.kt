@@ -28,13 +28,19 @@ class RulerTileService : TileService() {
             startActivityAndCollapse(pi)
             return
         }
+        // Reflect the intent immediately: starting/stopping the service is asynchronous, so
+        // reading isRunning right after toggle() still returns the *old* value and the tile
+        // would keep its previous look until the shade is reopened.
+        val willBeRunning = !RulerOverlayService.isRunning.value
         RulerOverlayService.toggle(this)
-        updateTile()
+        setTileState(willBeRunning)
     }
 
-    private fun updateTile() {
+    private fun updateTile() = setTileState(RulerOverlayService.isRunning.value)
+
+    private fun setTileState(active: Boolean) {
         qsTile?.apply {
-            state = if (RulerOverlayService.isRunning.value) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
+            state = if (active) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
             updateTile()
         }
     }
